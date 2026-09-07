@@ -51,6 +51,7 @@ A regra prática: **um controller nunca deveria conter uma query SQLAlchemy dire
 |---|---|---|
 | `id`, `user_id` (FK) | | Cada filme pertence a exatamente um usuário — **não há catálogo compartilhado** |
 | `title`, `year`, `rating`, `poster` | String | Vindos da OMDb (ou digitados, no caso de `title`) |
+| `genre` | String | Gêneros da OMDb, separados por vírgula (ex.: "Action, Sci-Fi"). A OMDb retorna a string literal `"N/A"` quando não tem gênero — normalizado para `None` em `omdb_service.search_movie`, igual à sinopse |
 | `watched` | Boolean | |
 | `my_rating` | Integer (1–5) | Obrigatório no momento em que `watched` vira `true` (regra aplicada no frontend e implicitamente no fluxo; ver seção 4.3) |
 | `is_favorite` | Boolean | |
@@ -78,7 +79,7 @@ Um mesmo `owner_user_id` não pode cadastrar dois amigos com o mesmo `email` (`F
 | Campo | Tipo | Observação |
 |---|---|---|
 | `id`, `from_user_id` (FK), `to_user_id` (FK) | | Quem indicou e quem recebeu |
-| `movie_title`, `movie_year`, `movie_poster`, `movie_rating`, `movie_plot` | | **Cópia** dos dados do filme no momento da indicação |
+| `movie_title`, `movie_year`, `movie_poster`, `movie_rating`, `movie_genre`, `movie_plot` | | **Cópia** dos dados do filme no momento da indicação |
 | `created_at` | DateTime | |
 
 **Decisão de design:** os dados do filme são duplicados (denormalizados) em vez de referenciar `Movie.id` por FK. Isso porque cada usuário tem seu próprio registro de `Movie` (não existe um filme "canônico" compartilhado) — se o filme fosse referenciado por FK e o dono o removesse do catálogo dele, a indicação já recebida pelo amigo ficaria órfã ou seria apagada em cascata, o que não faz sentido (a indicação já foi "entregue"). Copiar os dados no momento do envio resolve isso de forma simples, ao custo de não refletir edições posteriores do filme original.
@@ -138,7 +139,9 @@ A amizade no AfiniPlay é sempre **bidirecional**: se a conta de A aparece como 
 2. O modal lista apenas amigos do usuário atual com `status = "registered"` (`GET /api/friends`, filtrado no frontend).
 3. `POST /api/recommendations` valida no backend: o filme pertence ao usuário autenticado, está marcado como assistido, e cada `friend_id` enviado corresponde a um amigo do usuário com `status = "registered"` (`FriendService.get_registered_by_ids`) — ids inválidos ou de amigos ainda pendentes são silenciosamente ignorados (só falha se **nenhum** for válido).
 4. Uma `MovieRecommendation` é criada por destinatário (`RecommendationService.create_many`), copiando os dados do filme (ver seção 2).
-5. Quem recebeu vê a seção "Filmes Indicados para Você" (`friends_ui.js`, carregada no `DOMContentLoaded` de `index.html`) e pode dispensar (`DELETE /api/recommendations/{id}`).
+5. Quem recebeu vê a seção "Filmes Indicados para Você" (`friends_ui.js`, carregada no `DOMContentLoaded` de `index.html`) e pode:
+   - **Dispensar** (`DELETE /api/recommendations/{id}`) — só remove a indicação.
+   - **Adicionar ao catálogo** (`POST /api/recommendations/{id}/add-to-catalog`) — cria um novo `Movie` no catálogo de quem recebeu, usando os dados copiados na indicação (não assistido, sem nota própria), e remove a indicação da lista de pendentes. Se o destinatário já tiver um filme com o mesmo título, `MovieService.create` retorna `"duplicate"` — nesse caso o filme não é duplicado, mas a indicação é removida do mesmo jeito (a resposta muda para avisar que o filme já estava no catálogo).
 
 ---
 

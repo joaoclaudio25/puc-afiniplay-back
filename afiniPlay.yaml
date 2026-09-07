@@ -572,6 +572,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/recommendations/{rec_id}/add-to-catalog:
+    post:
+      tags: [Indicações]
+      summary: Aceitar uma indicação, adicionando o filme ao próprio catálogo
+      description: >
+        Cria o filme no catálogo do usuário autenticado a partir dos dados copiados
+        na indicação (título, ano, nota, gênero, pôster, sinopse), como um filme novo
+        e não assistido. A indicação é removida da lista de "indicados para você" de
+        qualquer forma — tanto quando o filme é adicionado quanto quando o usuário já
+        tinha esse título no catálogo (nesse caso apenas a mensagem de resposta muda).
+      parameters:
+        - in: path
+          name: rec_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Filme adicionado ao catálogo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  movie:
+                    $ref: '#/components/schemas/Movie'
+        "200":
+          description: O usuário já tinha esse filme no catálogo (indicação removida mesmo assim)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Indicação não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
 
   securitySchemes:
@@ -795,6 +838,11 @@ components:
           type: string
           description: Nota IMDb vinda da OMDb.
           example: "8.8"
+        genre:
+          type: string
+          nullable: true
+          description: Gêneros da OMDb, separados por vírgula.
+          example: "Action, Adventure, Sci-Fi"
         poster:
           type: string
           nullable: true
@@ -841,6 +889,9 @@ components:
           type: string
         rating:
           type: string
+        genre:
+          type: string
+          nullable: true
         poster:
           type: string
           nullable: true
@@ -867,6 +918,9 @@ components:
           type: string
         rating:
           type: string
+        genre:
+          type: string
+          nullable: true
         poster:
           type: string
         watched:
@@ -907,6 +961,12 @@ components:
         rating:
           type: string
           example: "8.8"
+        genre:
+          type: string
+          nullable: true
+          description: >
+            Gêneros da OMDb, separados por vírgula (ex.: "Action, Adventure, Sci-Fi").
+            null quando a OMDb não retorna gênero (ou retorna "N/A").
         poster:
           type: string
           nullable: true
@@ -988,6 +1048,9 @@ components:
           type: string
           nullable: true
         movie_rating:
+          type: string
+          nullable: true
+        movie_genre:
           type: string
           nullable: true
         movie_plot:

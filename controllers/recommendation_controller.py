@@ -53,3 +53,30 @@ def delete_recommendation(current_user, rec_id):
     if not ok:
         return jsonify({"error": "Indicação não encontrada."}), 404
     return jsonify({"message": "Indicação removida."})
+
+
+@recommendation_bp.post("/<int:rec_id>/add-to-catalog")
+@token_required
+def add_recommendation_to_catalog(current_user, rec_id):
+    rec = RecommendationService.get_received_by_id_and_recipient(rec_id, current_user.id)
+    if not rec:
+        return jsonify({"error": "Indicação não encontrada."}), 404
+
+    movie, err = MovieService.create({
+        "title": rec.movie_title,
+        "year": rec.movie_year,
+        "rating": rec.movie_rating,
+        "genre": rec.movie_genre,
+        "poster": rec.movie_poster,
+        "plot": rec.movie_plot,
+        "user_id": current_user.id,
+    })
+
+    # A indicação já foi "resolvida" (aceita) de qualquer forma — some da lista de
+    # indicações pendentes tanto se o filme foi adicionado quanto se já estava no catálogo.
+    RecommendationService.delete_by_id_and_recipient(rec_id, current_user.id)
+
+    if err == "duplicate":
+        return jsonify({"message": "Você já tinha esse filme no seu catálogo."})
+
+    return jsonify({"message": "Filme adicionado ao seu catálogo!", "movie": movie.to_dict()}), 201

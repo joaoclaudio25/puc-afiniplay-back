@@ -27,6 +27,7 @@ class MovieService:
             title=data.get("title"),
             year=data.get("year"),
             rating=data.get("rating"),
+            genre=data.get("genre"),
             poster=data.get("poster"),
             watched=data.get("watched", False),
             my_rating=data.get("my_rating"),
@@ -52,6 +53,8 @@ class MovieService:
             movie.year = data["year"]
         if "rating" in data:
             movie.rating = data["rating"]
+        if "genre" in data:
+            movie.genre = data["genre"]
         if "poster" in data:
             movie.poster = data["poster"]
         if "watched" in data:

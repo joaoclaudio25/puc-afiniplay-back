@@ -18,11 +18,14 @@ def search_movie(title):
         return None
 
     plot = data.get("Plot")
+    genre = data.get("Genre")
 
     return {
         "title": data.get("Title"),
         "year": data.get("Year"),
         "rating": data.get("imdbRating"),
+        # A OMDb retorna vários gêneros separados por vírgula, ex.: "Action, Adventure, Sci-Fi".
+        "genre": None if not genre or genre == "N/A" else genre,
         "poster": data.get("Poster"),
         # A OMDb retorna a string literal "N/A" quando não tem sinopse (comum em títulos
         # dublados/traduzidos) — normalizamos para None para o frontend tratar como ausente.

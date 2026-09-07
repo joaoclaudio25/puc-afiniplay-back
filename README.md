@@ -13,8 +13,8 @@ O frontend (HTML/CSS/JS) vive em um **repositório separado** — veja [afinipla
 * Edição de perfil (mesmas 3 etapas do cadastro), com confirmação ao trocar de senha
 
 **Catálogo de filmes**
-* Busca de filmes na OMDb e adição ao catálogo pessoal
-* Filtro por assistidos/não assistidos e por favoritos, ordenação por título ou nota
+* Busca de filmes na OMDb e adição ao catálogo pessoal (título, ano, nota IMDb, gênero e pôster)
+* Filtro por assistidos/não assistidos, por favoritos e por gênero, ordenação por título ou nota
 * Marcar como assistido exige avaliação de 1 a 5 estrelas (exibida sobre o pôster) e permite indicar em qual streaming foi assistido
 * Favoritar filmes (❤ sobre o pôster)
 * Sinopse (buscada automaticamente se estiver ausente), tradução para português, campo para escrever a sinopse manualmente quando a OMDb não tem, e comentário pessoal
@@ -23,6 +23,7 @@ O frontend (HTML/CSS/JS) vive em um **repositório separado** — veja [afinipla
 * Cadastro de amigos (nome, e-mail, telefone) com convite por e-mail e/ou link de WhatsApp
 * Status do amigo (Pendente/Cadastrado) atualizado automaticamente quando ele cria uma conta com o mesmo e-mail — a amizade já nasce nos dois sentidos (quem aceitou o convite já vê quem o convidou como amigo, sem precisar cadastrar ninguém) e o convidante é notificado por e-mail
 * Filmes já assistidos podem ser indicados para amigos cadastrados
+* Quem recebe uma indicação pode dispensá-la ou adicionar o filme direto ao próprio catálogo
 
 ### 🧠 Regras de negócio
 * Marcar um filme como assistido exige avaliação de 1 a 5 estrelas; desmarcar remove a avaliação e o streaming

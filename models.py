@@ -75,6 +75,7 @@ class Movie(db.Model):
     title = db.Column(db.String(120), nullable=False)
     year = db.Column(db.String(10), nullable=True)
     rating = db.Column(db.String(10), nullable=True)
+    genre = db.Column(db.String(150), nullable=True)  # gêneros da OMDb, ex.: "Action, Adventure, Sci-Fi"
     poster = db.Column(db.String(255), nullable=True)
     watched = db.Column(db.Boolean, default=False)
     my_rating = db.Column(db.Integer, nullable=True)  # avaliação pessoal de 1 a 5 estrelas
@@ -93,6 +94,7 @@ class Movie(db.Model):
             "title": self.title,
             "year": self.year,
             "rating": self.rating,
+            "genre": self.genre,
             "poster": self.poster,
             "watched": self.watched,
             "my_rating": self.my_rating,
@@ -156,6 +158,7 @@ class MovieRecommendation(db.Model):
     movie_year = db.Column(db.String(10), nullable=True)
     movie_poster = db.Column(db.String(255), nullable=True)
     movie_rating = db.Column(db.String(10), nullable=True)
+    movie_genre = db.Column(db.String(150), nullable=True)
     movie_plot = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -170,6 +173,7 @@ class MovieRecommendation(db.Model):
             "movie_year": self.movie_year,
             "movie_poster": self.movie_poster,
             "movie_rating": self.movie_rating,
+            "movie_genre": self.movie_genre,
             "movie_plot": self.movie_plot,
             "from_user_name": self.from_user.full_name or self.from_user.username,
             "created_at": self.created_at.isoformat() if self.created_at else None,

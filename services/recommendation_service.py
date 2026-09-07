@@ -19,6 +19,7 @@ class RecommendationService:
                 movie_year=movie.year,
                 movie_poster=movie.poster,
                 movie_rating=movie.rating,
+                movie_genre=movie.genre,
                 movie_plot=movie.plot,
             )
             db.session.add(rec)
@@ -32,6 +33,10 @@ class RecommendationService:
         return MovieRecommendation.query.filter_by(to_user_id=user_id).order_by(
             MovieRecommendation.created_at.desc()
         ).all()
+
+    @staticmethod
+    def get_received_by_id_and_recipient(rec_id, user_id):
+        return MovieRecommendation.query.filter_by(id=rec_id, to_user_id=user_id).first()
 
     @staticmethod
     def delete_by_id_and_recipient(rec_id, user_id):
