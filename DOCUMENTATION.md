@@ -8,7 +8,7 @@ Este documento descreve a arquitetura, o modelo de dados, os principais fluxos e
 
 O AfiniPlay é dividido em **dois repositórios independentes**:
 
-- **Backend** (este repositório): API REST em Flask (`/api/...`), sem nenhuma página HTML — só JSON. Pode rodar em qualquer lugar que suporte Python (PaaS, VPS, etc.).
+- **Backend** (este repositório): API REST em Flask (`/api/...`), sem nenhuma página HTML — só JSON. Pode rodar em qualquer lugar que suporte Python (PaaS, VPS, etc.) ou em container, via `Dockerfile`/`docker-compose.yml` próprios.
 - **Frontend** (repositório separado): HTML/CSS/JS puro (Bootstrap 5 via CDN, sem build step), 100% estático. Pode ser hospedado em qualquer servidor de arquivos (Netlify, GitHub Pages, FTP comum). Consome a API via `fetch`, apontando para a URL do backend configurada em `static/js/config.js`.
 
 Essa separação é o que permite publicar cada parte onde for mais conveniente — inclusive em provedores de hospedagem "tradicionais" (só arquivos, sem suporte a Python) para o frontend, já que ele não depende de nenhum runtime no servidor.
@@ -152,6 +152,7 @@ A amizade no AfiniPlay é sempre **bidirecional**: se a conta de A aparece como 
 * **Tradução via MyMemory (gratuita) em vez da Google Cloud Translation API**: a API do Google exige projeto no Google Cloud com faturamento habilitado. MyMemory tem limite de uso mais restrito, mas não exige nenhuma configuração — resultado em cache no próprio filme (`plot_pt`) minimiza o número de chamadas.
 * **Dados da indicação denormalizados** (`MovieRecommendation`): ver justificativa na seção 2.
 * **Amizade como duas linhas em vez de uma relação N:N com tabela de associação única**: cada lado (`Friend`) guarda seus próprios `name`/`phone` — a mesma pessoa pode estar salva com nomes diferentes em cada agenda (ex.: "Zé" para um amigo, "José Silva" para outro), o que uma única linha compartilhada não permitiria. O custo é ter que manter os dois lados sincronizados manualmente no código (`FriendService._ensure_registered_link`) em vez de o banco garantir isso via constraint.
+* **Um `Dockerfile`/`docker-compose.yml` por repositório, sem nenhum arquivo Docker compartilhado**: o backend sobe a API + Postgres (`docker compose up -d --build` dentro de `backend/`); o frontend sobe só o nginx servindo os arquivos estáticos (mesmo comando dentro de `frontend/`). Os dois não se conhecem no nível de infraestrutura — a única ligação é o navegador chamando `http://localhost:5000/api` a partir do `config.js` do frontend. Isso espelha de propósito o modelo de deploy real (Web Service + Static Site no Render, sem dependência de infraestrutura entre eles) já dentro do ambiente local de testes.
 
 ---
 
@@ -168,15 +169,14 @@ A amizade no AfiniPlay é sempre **bidirecional**: se a conta de A aparece como 
 
 ## 7. Estrutura de pastas (referência rápida)
 
-Localmente, os dois repositórios convivem lado a lado na mesma pasta de trabalho (é assim que este projeto foi desenvolvido); ao publicar, cada um vira um repositório Git independente no GitHub.
+Localmente, os dois repositórios convivem lado a lado na mesma pasta de trabalho (é assim que este projeto foi desenvolvido) — mas cada um já é, de fato, um repositório Git independente no GitHub, incluindo seu próprio Dockerfile/docker-compose.yml (ver decisão técnica na seção 5).
 
 ```
 AfiniPlay/
-├── docker-compose.yml        # Postgres para desenvolvimento local (só usado pelo backend)
-├── venv/                     # Ambiente virtual Python (só usado pelo backend)
-├── DEPLOY.md                 # Guia de deploy de backend + frontend
+├── venv/                      # Ambiente virtual Python (só para rodar o backend sem Docker)
+├── DEPLOY.md                  # Cópia local do guia de deploy (idêntica à de cada repositório)
 │
-├── backend/                   # → vira o repositório "afiniplay-backend"
+├── backend/                   # Repositório Git independente: "afiniplay-backend"
 │   ├── app.py
 │   ├── config.py
 │   ├── database.py
@@ -185,16 +185,23 @@ AfiniPlay/
 │   ├── afiniPlay.yaml         # Especificação OpenAPI/Swagger
 │   ├── README.md
 │   ├── DOCUMENTATION.md       # Este arquivo
+│   ├── DEPLOY.md
+│   ├── Dockerfile
+│   ├── docker-compose.yml     # Sobe backend + Postgres, sem depender do frontend
+│   ├── entrypoint.sh          # Aplica as migrações e inicia o gunicorn
 │   ├── .env.example
 │   ├── controllers/
 │   ├── services/
 │   └── migrations/
 │
-└── frontend/                  # → vira o repositório "afiniplay-frontend"
+└── frontend/                  # Repositório Git independente: "afiniplay-frontend"
     ├── index.html
     ├── login.html
     ├── reset_password.html
     ├── README.md
+    ├── DEPLOY.md
+    ├── Dockerfile
+    ├── docker-compose.yml     # Sobe só o container do frontend (nginx)
     └── static/
         ├── css/
         ├── img/

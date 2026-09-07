@@ -14,6 +14,13 @@ info:
     - [OMDb API](http://www.omdbapi.com/) — busca de filmes (`GET /api/search`) e sinopse original.
     - [MyMemory Translation API](https://mymemory.translated.net/) — tradução da sinopse para português (`POST /api/movies/{movie_id}/translate-plot`).
     - SMTP (ex.: Gmail) — envio de e-mails de convite/notificação (não exposto por nenhum endpoint desta API).
+
+
+    **Execução local**: direto com `python app.py` (venv) ou containerizado com o
+    `Dockerfile`/`docker-compose.yml` deste repositório (`docker compose up -d --build`)
+    — o container publica a API na mesma porta 5000, sem alterar nenhum contrato
+    descrito aqui. O frontend (repositório separado) tem seu próprio Dockerfile e não
+    é uma dependência de infraestrutura deste backend. Veja `DEPLOY.md`.
   version: 2.0.0
 
 servers:
