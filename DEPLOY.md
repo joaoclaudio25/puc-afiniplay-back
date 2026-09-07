@@ -19,6 +19,33 @@ Este guia publica **os dois no Render**, para você não precisar criar conta em
 
 ---
 
+## 🐳 Testar localmente com Docker (recomendado)
+
+Cada repositório tem seu **próprio** `docker-compose.yml` — não existe nenhum arquivo Docker compartilhado entre os dois. Com o [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e rodando, suba cada lado a partir da sua própria pasta, em qualquer ordem:
+
+```bash
+cd backend
+docker compose up -d --build
+```
+
+```bash
+cd frontend
+docker compose up -d --build
+```
+
+O `backend/docker-compose.yml` sobe 2 containers (API Flask + Postgres), aplicando as migrações (`flask db upgrade`) automaticamente antes de iniciar. O `frontend/docker-compose.yml` sobe 1 container (nginx servindo os arquivos estáticos). Acesse **http://localhost:5500/login.html**.
+
+Comandos úteis (rode dentro da pasta correspondente):
+```bash
+docker compose logs -f backend   # dentro de backend/ — acompanhar os logs da API
+docker compose down              # derruba os containers daquele lado
+docker compose down -v           # (só em backend/) também apaga os dados do banco
+```
+
+⚠️ O frontend não sabe nada sobre o backend no nível do Docker — a ligação entre os dois acontece só no navegador, via `frontend/static/js/config.js` apontando para `http://localhost:5000/api`. Isso é proposital: cada lado pode ser construído, testado e publicado de forma 100% independente, exatamente como acontece no Render (Web Service + Static Site, sem nenhuma dependência de infraestrutura entre eles).
+
+---
+
 ## 1. Enviar o código para o GitHub (dois repositórios)
 
 Crie **dois** repositórios vazios no GitHub (sem README/.gitignore — já temos os nossos): um para o backend, outro para o frontend. Podem ser privados.

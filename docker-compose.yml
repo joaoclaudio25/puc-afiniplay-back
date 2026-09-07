@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: afiniplay_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: afiniplay_db
+    ports:
+      - "5433:5432" # Redireciona a porta 5433 da sua máquina para a 5432 do container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: .
+    container_name: afiniplay_backend
+    restart: always
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      # Sobrescreve o que estiver no .env: dentro da rede deste docker-compose, o Postgres
+      # é acessado pelo nome do serviço ("db"), não por "localhost:5433" (isso só vale
+      # para quem roda o backend direto na máquina, fora de container).
+      DATABASE_URL: postgresql+pg8000://postgres:postgres@db:5432/afiniplay_db
+    ports:
+      - "5000:5000"
+
+volumes:
+  postgres_data:
+    name: afiniplay_postgres_data
