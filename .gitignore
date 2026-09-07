@@ -1,0 +1,20 @@
+# Ambiente virtual
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Segredos / configuração local
+.env
+
+# Banco de dados local
+instance/
+*.db
+
+# IDE
+.idea/
+
+# Logs
+log/
+*.log

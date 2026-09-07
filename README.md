@@ -113,7 +113,7 @@ Acesse **http://localhost:5500/login.html**. Confira que `frontend/static/js/con
 
 ## 🚀 Deploy (colocar no ar para testar com amigos)
 
-Para publicar backend e frontend em serviços de hospedagem separados, com domínio próprio, veja o passo a passo completo em **[DEPLOY.md](../DEPLOY.md)**.
+Para publicar backend e frontend em serviços de hospedagem separados, com domínio próprio, veja o passo a passo completo em **[DEPLOY.md](DEPLOY.md)**.
 
 ## 📄 Documentação da API (Swagger / OpenAPI)
 
