@@ -439,13 +439,19 @@ paths:
 
     post:
       tags: [Amigos]
-      summary: Cadastrar um novo amigo e (opcionalmente) enviar convite
+      summary: Cadastrar um novo amigo — vincula direto se já tiver conta, senão envia convite
       description: >
-        Pelo menos um dos dois convites (e-mail e/ou WhatsApp) deve ser escolhido
-        no frontend, mas a API não exige isso. Se `invite_via_email` for true, um
-        e-mail com link de cadastro é enviado. Se `invite_via_whatsapp` for true,
-        a resposta inclui um link wa.me pronto (a aplicação cliente é responsável
-        por abri-lo; a API não envia a mensagem sozinha).
+        O backend verifica se o e-mail já pertence a uma conta AfiniPlay
+        (o mesmo usado por GET /api/friends/check-email). Se pertencer: nenhum
+        convite é enviado — os campos `invite_via_email`/`invite_via_whatsapp` são
+        ignorados nesse caso —, o amigo já nasce com `status: "registered"` e a
+        amizade é criada nos dois sentidos (ver seção 4.5 da documentação técnica).
+        Caso o e-mail ainda não tenha conta, é um convite normal: pelo menos um
+        dos dois canais (e-mail e/ou WhatsApp) precisa ser escolhido, e `phone` é
+        obrigatório se `invite_via_whatsapp` for true. Se `invite_via_email` for
+        true, um e-mail com link de cadastro é enviado. Se `invite_via_whatsapp`
+        for true, a resposta inclui um link wa.me pronto (a aplicação cliente é
+        responsável por abri-lo; a API não envia a mensagem sozinha).
       requestBody:
         required: true
         content:
@@ -461,6 +467,45 @@ paths:
                 $ref: '#/components/schemas/FriendCreateResponse'
         "400":
           description: Dados inválidos ou e-mail já cadastrado como amigo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/friends/check-email:
+    get:
+      tags: [Amigos]
+      summary: Verificar se um e-mail já pertence a uma conta AfiniPlay
+      description: >
+        Usado pelo frontend antes de enviar o formulário de "Convidar Novo Amigo"
+        (dispara no blur do campo de e-mail), para decidir se mostra as opções de
+        convite ou o botão "Adicionar como Amigo". Puramente informativo — o
+        POST /api/friends refaz essa checagem no servidor de forma independente.
+      parameters:
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: Resultado da verificação
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+                  name:
+                    type: string
+                    nullable: true
+                    description: Nome (ou username) da conta encontrada; null se exists for false.
+        "400":
+          description: E-mail não informado
           content:
             application/json:
               schema:

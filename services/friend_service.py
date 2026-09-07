@@ -17,6 +17,11 @@ class FriendService:
         return Friend.query.filter_by(id=friend_id, owner_user_id=owner_user_id).first()
 
     @staticmethod
+    def find_registered_user_by_email(email):
+        """Retorna a conta AfiniPlay (User) que usa esse e-mail, se existir."""
+        return User.query.filter_by(email=email).first()
+
+    @staticmethod
     def get_registered_by_ids(owner_user_id, friend_ids):
         """Retorna, dentre os ids informados, apenas os amigos do usuário que já
         completaram o cadastro (têm uma conta AfiniPlay vinculada)."""

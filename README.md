@@ -21,6 +21,7 @@ O frontend (HTML/CSS/JS) vive em um **repositório separado** — veja [afinipla
 
 **Amigos e indicações**
 * Cadastro de amigos (nome, e-mail, telefone) com convite por e-mail e/ou link de WhatsApp
+* Se o e-mail informado já pertencer a uma conta AfiniPlay, o convite é substituído por uma adição direta (sem convite) — a amizade já nasce confirmada nos dois sentidos
 * Status do amigo (Pendente/Cadastrado) atualizado automaticamente quando ele cria uma conta com o mesmo e-mail — a amizade já nasce nos dois sentidos (quem aceitou o convite já vê quem o convidou como amigo, sem precisar cadastrar ninguém) e o convidante é notificado por e-mail
 * Filmes já assistidos podem ser indicados para amigos cadastrados
 * Quem recebe uma indicação pode dispensá-la ou adicionar o filme direto ao próprio catálogo
