@@ -1,0 +1,1006 @@
+openapi: 3.0.3
+info:
+  title: AfiniPlay - API
+  description: >
+    API backend do AfiniPlay: catálogo de filmes pessoal com avaliação por estrelas,
+    favoritos, sinopse (com tradução), comentários, cadastro de amigos com convite
+    por e-mail/WhatsApp e indicação de filmes assistidos entre amigos.
+    Construída em Flask + SQLAlchemy, seguindo arquitetura MVC (Models / Controllers
+    como Blueprints / Services para regras de negócio).
+
+
+    **Integrações com serviços externos** (chamadas feitas pelo próprio backend,
+    não pelo cliente da API):
+    - [OMDb API](http://www.omdbapi.com/) — busca de filmes (`GET /api/search`) e sinopse original.
+    - [MyMemory Translation API](https://mymemory.translated.net/) — tradução da sinopse para português (`POST /api/movies/{movie_id}/translate-plot`).
+    - SMTP (ex.: Gmail) — envio de e-mails de convite/notificação (não exposto por nenhum endpoint desta API).
+  version: 2.0.0
+
+servers:
+  - url: http://localhost:5000
+    description: Servidor local de desenvolvimento
+
+tags:
+  - name: Autenticação
+    description: Cadastro, login e redefinição de senha
+  - name: Perfil
+    description: Dados do usuário autenticado
+  - name: Filmes
+    description: Catálogo de filmes do usuário
+  - name: Busca
+    description: Busca de filmes na OMDb
+  - name: Amigos
+    description: Cadastro e convite de amigos
+  - name: Indicações
+    description: Indicação de filmes assistidos entre amigos
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # --- AUTENTICAÇÃO ---
+
+  /api/auth/register:
+    post:
+      tags: [Autenticação]
+      summary: Criar uma nova conta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        "201":
+          description: Conta criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "400":
+          description: Dados inválidos, ou usuário/e-mail já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autenticar e obter um token JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        "200":
+          description: Login bem-sucedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        "401":
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Autenticação]
+      summary: Solicitar link de redefinição de senha por e-mail
+      description: >
+        Sempre retorna 200 com uma mensagem genérica, mesmo se o e-mail não existir
+        (evita expor quais e-mails estão cadastrados). Se existir, envia um e-mail
+        com um link de redefinição válido por 1 hora.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Solicitação processada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "400":
+          description: E-mail não informado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/reset-password:
+    post:
+      tags: [Autenticação]
+      summary: Redefinir a senha usando o token recebido por e-mail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  description: Token recebido por e-mail (parâmetro ?token= do link)
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Senha redefinida com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "400":
+          description: Token ausente, inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- PERFIL ---
+
+  /api/users/me:
+    get:
+      tags: [Perfil]
+      summary: Obter o perfil do usuário autenticado
+      responses:
+        "200":
+          description: Perfil do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Perfil]
+      summary: Atualizar o perfil do usuário autenticado
+      description: >
+        Todos os campos são opcionais. Nome de usuário/e-mail só são alterados se
+        enviados (e não podem colidir com outro usuário). Se uma nova senha for
+        enviada, um e-mail de confirmação é disparado. Os campos da Aba 2 (perfil
+        pessoal) e Aba 3 (streamings) substituem por completo o valor anterior.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileInput'
+      responses:
+        "200":
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/UserProfile'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        "400":
+          description: Dados inválidos, ou usuário/e-mail já em uso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags: [Perfil]
+      summary: Excluir a conta do usuário autenticado
+      description: Remove também todos os filmes do catálogo do usuário (cascade).
+      responses:
+        "200":
+          description: Conta removida com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  # --- BUSCA ---
+
+  /api/search:
+    get:
+      tags: [Busca]
+      summary: Buscar um filme pelo título na OMDb
+      parameters:
+        - in: query
+          name: title
+          required: true
+          schema:
+            type: string
+          description: Título exato do filme a ser buscado.
+      responses:
+        "200":
+          description: Filme encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OmdbMovie'
+        "400":
+          description: Título não informado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Filme não encontrado na OMDb
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Erro ao comunicar com a OMDb
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- FILMES ---
+
+  /api/movies:
+    get:
+      tags: [Filmes]
+      summary: Listar os filmes do catálogo do usuário autenticado
+      responses:
+        "200":
+          description: Lista de filmes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Movie'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Filmes]
+      summary: Adicionar um filme ao catálogo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieInput'
+      responses:
+        "201":
+          description: Filme criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+        "400":
+          description: Filme duplicado (mesmo título já existe no catálogo do usuário)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/movies/{movie_id}:
+    put:
+      tags: [Filmes]
+      summary: Atualizar um filme do catálogo
+      description: >
+        Todos os campos são opcionais; apenas os enviados são alterados. Usado para
+        marcar como assistido (com nota de 1 a 5 e streaming opcional), favoritar,
+        salvar comentário, sinopse manual ou tradução em cache.
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovieUpdate'
+      responses:
+        "200":
+          description: Filme atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Filme não encontrado (ou não pertence ao usuário)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Filmes]
+      summary: Remover um filme do catálogo
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+      responses:
+        "200":
+          description: Filme removido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Filme não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/movies/{movie_id}/translate-plot:
+    post:
+      tags: [Filmes]
+      summary: Traduzir a sinopse do filme para português (via MyMemory Translation API)
+      description: >
+        Serviço externo: chama a **MyMemory Translation API** (https://mymemory.translated.net/,
+        gratuita, sem chave de API) para traduzir a sinopse (`plot`) de inglês para
+        português. O resultado é armazenado em cache no próprio filme (campo `plot_pt`)
+        — chamadas seguintes ao mesmo filme retornam o valor em cache sem chamar a API
+        externa de novo, já que ela tem limite de uso diário por IP.
+      parameters:
+        - $ref: '#/components/parameters/MovieId'
+      responses:
+        "200":
+          description: Sinopse traduzida (ou já em cache)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plot_pt:
+                    type: string
+                    description: >
+                      Sinopse traduzida, obtida da MyMemory Translation API (ou do
+                      cache em `Movie.plot_pt`, se já havia sido traduzida antes).
+        "400":
+          description: Filme sem sinopse para traduzir
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Filme não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Erro ao comunicar com a MyMemory Translation API (serviço externo indisponível, timeout, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "502":
+          description: A MyMemory Translation API respondeu, mas sem um resultado de tradução válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- AMIGOS ---
+
+  /api/friends:
+    get:
+      tags: [Amigos]
+      summary: Listar os amigos cadastrados pelo usuário autenticado
+      responses:
+        "200":
+          description: Lista de amigos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Friend'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Amigos]
+      summary: Cadastrar um novo amigo e (opcionalmente) enviar convite
+      description: >
+        Pelo menos um dos dois convites (e-mail e/ou WhatsApp) deve ser escolhido
+        no frontend, mas a API não exige isso. Se `invite_via_email` for true, um
+        e-mail com link de cadastro é enviado. Se `invite_via_whatsapp` for true,
+        a resposta inclui um link wa.me pronto (a aplicação cliente é responsável
+        por abri-lo; a API não envia a mensagem sozinha).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendInput'
+      responses:
+        "201":
+          description: Amigo cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendCreateResponse'
+        "400":
+          description: Dados inválidos ou e-mail já cadastrado como amigo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/friends/{friend_id}:
+    delete:
+      tags: [Amigos]
+      summary: Remover um amigo cadastrado
+      parameters:
+        - in: path
+          name: friend_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Amigo removido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Amigo não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # --- INDICAÇÕES ---
+
+  /api/recommendations:
+    get:
+      tags: [Indicações]
+      summary: Listar as indicações de filmes recebidas pelo usuário autenticado
+      responses:
+        "200":
+          description: Lista de indicações recebidas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recommendation'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Indicações]
+      summary: Indicar um filme assistido para um ou mais amigos
+      description: >
+        Só é possível indicar filmes já marcados como assistidos, e apenas para
+        amigos que já concluíram o cadastro no AfiniPlay (status "registered").
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationInput'
+      responses:
+        "201":
+          description: Filme indicado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "400":
+          description: Filme não assistido, não encontrado, ou nenhum amigo válido selecionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Filme não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/recommendations/{rec_id}:
+    delete:
+      tags: [Indicações]
+      summary: Dispensar/remover uma indicação recebida
+      parameters:
+        - in: path
+          name: rec_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Indicação removida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          description: Indicação não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token obtido em POST /api/auth/login, enviado como
+        "Authorization: Bearer <token>". Expira em 24 horas.
+
+  parameters:
+    MovieId:
+      in: path
+      name: movie_id
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    Unauthorized:
+      description: Token ausente, inválido, expirado, ou usuário não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operação realizada com sucesso."
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Mensagem de erro."
+
+    ErrorsResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+          example: ["Esse filme já está no seu catálogo."]
+
+    # --- AUTENTICAÇÃO / PERFIL ---
+
+    RegisterInput:
+      type: object
+      required: [full_name, username, email, password]
+      properties:
+        full_name:
+          type: string
+          example: "Maria Silva"
+        username:
+          type: string
+          example: "mariasilva"
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        age:
+          type: integer
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          enum: [feminino, masculino, outro]
+          nullable: true
+        streaming_platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamingPlatformKey'
+        streaming_other:
+          type: string
+          nullable: true
+          description: Texto livre, usado quando "outros" está em streaming_platforms.
+
+    UpdateProfileInput:
+      type: object
+      description: Todos os campos são opcionais.
+      properties:
+        full_name:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          description: Se enviada, substitui a senha atual e dispara e-mail de confirmação.
+        age:
+          type: integer
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        streaming_platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamingPlatformKey'
+        streaming_other:
+          type: string
+          nullable: true
+
+    StreamingPlatformKey:
+      type: string
+      enum:
+        - netflix
+        - prime_video
+        - max
+        - disney_plus
+        - globoplay
+        - apple_tv
+        - youtube
+        - mercado_play
+        - tv_aberta
+        - outros
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        full_name:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        age:
+          type: integer
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        streaming_platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamingPlatformKey'
+        streaming_other:
+          type: string
+          nullable: true
+
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: Nome de usuário OU e-mail.
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        username:
+          type: string
+        user_id:
+          type: integer
+
+    # --- FILMES ---
+
+    Movie:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        title:
+          type: string
+          example: "Inception"
+        year:
+          type: string
+          example: "2010"
+        rating:
+          type: string
+          description: Nota IMDb vinda da OMDb.
+          example: "8.8"
+        poster:
+          type: string
+          nullable: true
+        watched:
+          type: boolean
+        my_rating:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: Avaliação pessoal de 1 a 5 estrelas. Obrigatória para marcar como assistido.
+        is_favorite:
+          type: boolean
+        watched_on_platform:
+          type: string
+          nullable: true
+          description: Nome do streaming onde o usuário assistiu (texto livre, opcional).
+        plot:
+          type: string
+          nullable: true
+          description: Sinopse original (OMDb ou digitada manualmente pelo usuário).
+        plot_pt:
+          type: string
+          nullable: true
+          description: >
+            Sinopse traduzida para português, obtida da MyMemory Translation API
+            (serviço externo gratuito, sem chave) via
+            POST /api/movies/{movie_id}/translate-plot. Funciona como cache: uma
+            vez preenchido, novas chamadas de tradução não acionam a API de novo.
+        comment:
+          type: string
+          nullable: true
+          description: Comentário pessoal do usuário sobre o filme.
+        user_id:
+          type: integer
+
+    MovieInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        year:
+          type: string
+        rating:
+          type: string
+        poster:
+          type: string
+          nullable: true
+        plot:
+          type: string
+          nullable: true
+        watched:
+          type: boolean
+          default: false
+        my_rating:
+          type: integer
+          nullable: true
+        is_favorite:
+          type: boolean
+          default: false
+
+    MovieUpdate:
+      type: object
+      description: Todos os campos são opcionais; os não enviados permanecem inalterados.
+      properties:
+        title:
+          type: string
+        year:
+          type: string
+        rating:
+          type: string
+        poster:
+          type: string
+        watched:
+          type: boolean
+        my_rating:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+        is_favorite:
+          type: boolean
+        watched_on_platform:
+          type: string
+          nullable: true
+        plot:
+          type: string
+          nullable: true
+          description: Sinopse (da OMDb, digitada manualmente, ou resultado de uma nova busca).
+        plot_pt:
+          type: string
+          nullable: true
+          description: >
+            Sinopse traduzida (cache). Normalmente preenchido pelo endpoint
+            POST /api/movies/{movie_id}/translate-plot (MyMemory Translation API),
+            mas pode ser sobrescrito diretamente aqui se necessário.
+        comment:
+          type: string
+          nullable: true
+
+    OmdbMovie:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Inception"
+        year:
+          type: string
+        rating:
+          type: string
+          example: "8.8"
+        poster:
+          type: string
+          nullable: true
+        plot:
+          type: string
+          nullable: true
+          description: null quando a OMDb não tem sinopse (ou retorna "N/A").
+
+    # --- AMIGOS ---
+
+    Friend:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, registered]
+          description: >
+            "pending" até o convidado criar uma conta com o mesmo e-mail;
+            muda automaticamente para "registered" quando isso acontece.
+        invited_via_email:
+          type: boolean
+        invited_via_whatsapp:
+          type: boolean
+
+    FriendInput:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          description: Obrigatório se invite_via_whatsapp for true. Aceita qualquer formatação (DDD + número).
+        invite_via_email:
+          type: boolean
+          default: false
+        invite_via_whatsapp:
+          type: boolean
+          default: false
+
+    FriendCreateResponse:
+      allOf:
+        - $ref: '#/components/schemas/Friend'
+        - type: object
+          properties:
+            whatsapp_link:
+              type: string
+              nullable: true
+              description: Presente apenas quando invite_via_whatsapp foi true. Link wa.me pronto para abrir.
+
+    # --- INDICAÇÕES ---
+
+    Recommendation:
+      type: object
+      description: >
+        Os dados do filme são uma cópia feita no momento da indicação (não dependem
+        do filme continuar existindo no catálogo de quem indicou).
+      properties:
+        id:
+          type: integer
+        movie_title:
+          type: string
+        movie_year:
+          type: string
+          nullable: true
+        movie_poster:
+          type: string
+          nullable: true
+        movie_rating:
+          type: string
+          nullable: true
+        movie_plot:
+          type: string
+          nullable: true
+        from_user_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    RecommendationInput:
+      type: object
+      required: [movie_id, friend_ids]
+      properties:
+        movie_id:
+          type: integer
+          description: Deve ser um filme do próprio catálogo do usuário autenticado, já assistido.
+        friend_ids:
+          type: array
+          items:
+            type: integer
+          description: Ids de amigos (do próprio usuário) com status "registered".
