@@ -58,7 +58,10 @@ backend/
 │   ├── omdb_service.py         # Integração com a OMDb + tradução (MyMemory)
 │   ├── whatsapp_service.py     # Geração de link de convite via WhatsApp (wa.me)
 │   └── email_service.py        # Envio de e-mail (SMTP) e templates
-└── migrations/                # Histórico de migrações do banco (Alembic)
+├── migrations/                # Histórico de migrações do banco (Alembic)
+├── Dockerfile                # Imagem do backend (usada pelo docker-compose.yml e pelo Render)
+├── docker-compose.yml         # Sobe backend + Postgres juntos, isolado do frontend
+└── entrypoint.sh              # Aplica as migrações e inicia o gunicorn (usado pelo Dockerfile)
 ```
 
 Uma explicação mais detalhada de cada camada, dos modelos de dados e dos principais fluxos está em **[DOCUMENTATION.md](DOCUMENTATION.md)**.
@@ -71,6 +74,23 @@ Python, Flask, Flask-SQLAlchemy, Flask-Migrate (Alembic), Flask-CORS, PyJWT, pyt
 
 ## ⚙️ Como rodar o backend
 
+### Opção 1: Docker (recomendado)
+
+Com o [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e rodando, na pasta `backend/`:
+
+```bash
+cp .env.example .env
+# Edite o .env: pelo menos FRONTEND_URL, e as credenciais SMTP se quiser e-mails de verdade
+# (ver seção "Envio de E-mail" mais abaixo). Não mexa em DATABASE_URL — o docker-compose.yml
+# já aponta para o Postgres do próprio container, sobrescrevendo o que estiver no .env.
+
+docker compose up -d --build
+```
+
+Isso sobe **2 containers**, isolados do frontend: `afiniplay_postgres` (banco, porta 5433) e `afiniplay_backend` (API, porta 5000) — as migrações (`flask db upgrade`) rodam sozinhas antes do servidor iniciar (`entrypoint.sh`). Comandos úteis: `docker compose logs -f backend`, `docker compose down` (`-v` para também apagar os dados do banco).
+
+### Opção 2: Python direto (venv)
+
 ```bash
 # 1. Criar e ativar o ambiente virtual (na raiz do projeto)
 python -m venv venv
@@ -80,12 +100,10 @@ source venv/Scripts/activate      # Windows (Git Bash) — no PowerShell: venv\S
 cd backend
 pip install -r requirements.txt
 
-# 3. Subir o banco Postgres (na raiz do projeto, onde está o docker-compose.yml)
-cd ..
-docker-compose up -d
+# 3. Subir só o banco Postgres via Docker (ainda dentro de backend/)
+docker compose up -d db
 
 # 4. Configurar variáveis de ambiente
-cd backend
 cp .env.example .env
 # Edite o .env: pelo menos FRONTEND_URL (onde o frontend está rodando — veja abaixo)
 # e, se quiser e-mails de verdade, as credenciais SMTP (veja a seção mais abaixo).
@@ -98,14 +116,19 @@ flask db upgrade
 python app.py
 ```
 
-A API sobe em **http://localhost:5000** — acessar essa URL direto no navegador só mostra um health-check (`{"status": "ok"}`), já que não há páginas aqui. Você vai usar o **frontend** (repositório separado) para de fato navegar na aplicação.
+Nos dois casos, a API sobe em **http://localhost:5000** — acessar essa URL direto no navegador só mostra um health-check (`{"status": "ok"}`), já que não há páginas aqui. Você vai usar o **frontend** (repositório separado) para de fato navegar na aplicação.
 
 ### Rodando o frontend junto (desenvolvimento local)
 
-O frontend é 100% arquivos estáticos — não precisa de Python/Node para rodar, qualquer servidor de arquivos estáticos serve:
+O frontend também tem seu próprio `Dockerfile`/`docker-compose.yml` — veja o [README dele](../frontend/README.md). Resumindo (opção Docker, dentro de `frontend/`):
 
 ```bash
-cd frontend
+docker compose up -d --build
+```
+
+Ou, sem Docker, qualquer servidor de arquivos estáticos serve (dentro de `frontend/`):
+
+```bash
 python -m http.server 5500
 ```
 
@@ -113,9 +136,11 @@ Acesse **http://localhost:5500/login.html**. Confira que `frontend/static/js/con
 
 📌 CORS já está liberado (`Flask-CORS`) para qualquer origem, então o frontend pode rodar em qualquer porta/domínio sem configuração adicional no backend.
 
+📌 Backend e frontend são containers **independentes** — nenhum dos dois `docker-compose.yml` conhece o outro. A ligação entre eles acontece só no navegador, via `config.js`.
+
 ## 🚀 Deploy (colocar no ar para testar com amigos)
 
-Para publicar backend e frontend em serviços de hospedagem separados, com domínio próprio, veja o passo a passo completo em **[DEPLOY.md](DEPLOY.md)**.
+Para rodar tudo localmente antes de publicar, veja **[DEPLOY.md](DEPLOY.md)**. Para publicar o backend no Render, veja **[DEPLOY_Render.md](DEPLOY_Render.md)**.
 
 ## 📄 Documentação da API (Swagger / OpenAPI)
 
@@ -131,11 +156,10 @@ O schema do banco é gerenciado pelo Alembic via Flask-Migrate — o SQLAlchemy 
 Sempre que alterar `models.py` (adicionar/remover/mudar uma coluna, etc.):
 
 ```bash
-# 1. Suba o banco (se ainda não estiver rodando)
-docker-compose up -d
+# 1. Suba o banco (se ainda não estiver rodando), dentro de backend/
+docker compose up -d db
 
 # 2. Gere a migração comparando os models com o banco atual
-cd backend
 export FLASK_APP=app.py        # no PowerShell: $env:FLASK_APP = "app.py"
 flask db migrate -m "descreva a mudança aqui"
 

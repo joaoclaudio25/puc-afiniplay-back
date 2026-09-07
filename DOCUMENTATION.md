@@ -179,7 +179,9 @@ Localmente, os dois repositórios convivem lado a lado na mesma pasta de trabalh
 ```
 AfiniPlay/
 ├── venv/                      # Ambiente virtual Python (só para rodar o backend sem Docker)
-├── DEPLOY.md                  # Cópia local do guia de deploy (idêntica à de cada repositório)
+├── DEPLOY.md                  # Guia de execução local (cópia idêntica à de cada repositório)
+├── DEPLOY_Render.md           # Guia de deploy do backend no Render
+├── DEPLOY_HostGator.md        # Guia de deploy do frontend via FTP
 │
 ├── backend/                   # Repositório Git independente: "afiniplay-backend"
 │   ├── app.py
@@ -191,6 +193,7 @@ AfiniPlay/
 │   ├── README.md
 │   ├── DOCUMENTATION.md       # Este arquivo
 │   ├── DEPLOY.md
+│   ├── DEPLOY_Render.md
 │   ├── Dockerfile
 │   ├── docker-compose.yml     # Sobe backend + Postgres, sem depender do frontend
 │   ├── entrypoint.sh          # Aplica as migrações e inicia o gunicorn
@@ -205,8 +208,10 @@ AfiniPlay/
     ├── reset_password.html
     ├── README.md
     ├── DEPLOY.md
+    ├── DEPLOY_HostGator.md
     ├── Dockerfile
     ├── docker-compose.yml     # Sobe só o container do frontend (nginx)
+    ├── nginx.conf              # Desativa cache de HTML/JS/CSS
     └── static/
         ├── css/
         ├── img/
