@@ -1,9 +1,9 @@
 # AfiniPlay — Backend (API) 🎬
 ## README 📘
 
-Este repositório contém **só a API** do AfiniPlay: catálogo de filmes pessoal com avaliação por estrelas, favoritos, sinopse (com tradução), comentários, cadastro de amigos com convite por e-mail/WhatsApp e indicação de filmes assistidos entre amigos.
+Este repositório contém a API Principal do AfiniPlay, o backend que contém o catálogo de filmes pessoal com avaliação por estrelas, favoritos, sinopse (com tradução), comentários, cadastro de amigos com convite por e-mail/WhatsApp e indicação de filmes assistidos entre amigos.
 
-O frontend (HTML/CSS/JS) vive em um **repositório separado** — veja [afiniplay-frontend](../frontend/README.md) (ou o link do repositório correspondente, se você já o publicou separadamente no GitHub). Este backend não serve nenhuma página HTML; ele é uma API JSON pura, com CORS habilitado para ser consumida por um frontend hospedado em qualquer lugar.
+O frontend (HTML/CSS/JS) está em um componente separado que para funcionar dependerá desse serviço está ativo.
 
 ## Funcionalidades
 
@@ -34,13 +34,15 @@ O frontend (HTML/CSS/JS) vive em um **repositório separado** — veja [afinipla
 
 ## Arquitetura 🏗️
 
-Organizado como **MVC**:
+Procuramos seguir o Design Patter MVC, onde dividimos a solução entre os modelos, os controladores e
+as interfaces, que nessa solução estão no componente de Front-end.
+Abaixo a descrição do que faz cada arquivo:
 
 ```
 backend/
 ├── app.py                 # Cria a app Flask, registra os Blueprints e a rota de health-check ("/")
 ├── config.py               # Configuração (SECRET_KEY, banco, FRONTEND_URL, chave da OMDb)
-├── database.py              # Instância do SQLAlchemy
+├── database.py              # Instância do SQLAlchemy que agora funciona como uma camada ORM entre o código python e o driver do Postgres.
 ├── models.py                # Models: User, Movie, Friend, MovieRecommendation
 ├── controllers/              # Controllers (Blueprints) — request/response HTTP
 │   ├── auth_controller.py      # Cadastro, login, esqueci/redefinir senha
@@ -59,7 +61,7 @@ backend/
 │   ├── whatsapp_service.py     # Geração de link de convite via WhatsApp (wa.me)
 │   └── email_service.py        # Envio de e-mail (SMTP) e templates
 ├── migrations/                # Histórico de migrações do banco (Alembic)
-├── Dockerfile                # Imagem do backend (usada pelo docker-compose.yml e pelo Render)
+├── Dockerfile                # Imagem do backend (usada pelo docker-compose.yml)
 ├── docker-compose.yml         # Sobe backend + Postgres juntos, isolado do frontend
 └── entrypoint.sh              # Aplica as migrações e inicia o gunicorn (usado pelo Dockerfile)
 ```

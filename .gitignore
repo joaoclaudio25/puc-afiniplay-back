@@ -18,3 +18,6 @@ instance/
 # Logs
 log/
 *.log
+
+#Render
+DEPLOY_Render.md
